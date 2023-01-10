@@ -11,6 +11,10 @@ use store::Store;
 use tokio::sync::mpsc::{channel, Receiver};
 use worker::Worker;
 
+use anvil::spawn;
+use std::net::SocketAddr;
+use evmap::*;
+
 /// The default channel capacity.
 pub const CHANNEL_CAPACITY: usize = 1_000;
 
@@ -63,6 +67,43 @@ async fn main() -> Result<()> {
         _ => unreachable!(),
     }
     Ok(())
+}
+
+// Spawns Anvil instance
+async fn spawn_Anvil() -> Result<()> {
+    let args = Args::parse();
+    let addr = args.host.parse::<SocketAddr>().unwrap();
+
+    server.run(addr).await?;
+    let config = anvil::NodeConfig {
+        host: Some(addr.ip()),
+        port: addr.port(),
+        ..Default::default()
+    };
+
+    let (api, handle) = spawn(config).await;
+    // api.anvil_set_interval_mining(1)?;
+    api.anvil_set_auto_mine(false).await.unwrap();
+
+    match handle.await.unwrap() {
+        Err(err) => {
+            dbg!(err);
+        }
+        Ok(()) => {
+            println!("Listening on {}", addr);
+        }
+    }
+        // Create channel for batchmaker.
+        let (tx_batch, rx_batch) = channel(CHANNEL_CAPACITY);
+
+    Ok(())
+}
+
+// Spawns evmap
+async fn spawn_evmap() -> Result<()> {
+    let (r, w) = evmap::new();
+
+    Ok (())
 }
 
 // Runs either a worker or a primary.
