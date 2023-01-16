@@ -1,2 +1,68 @@
 [workspace]
-members = ["bullshark", "foundry"]
+members = [
+  "bullshark/primary",
+  "bullshark/node",
+  "bullshark/store",
+  "bullshark/crypto",
+  "bullshark/worker",
+  "bullshark/consensus",
+  "bullshark/network",
+  "bullshark/config",
+  "foundry/anvil",
+  "foundry/anvil/core",
+  "foundry/anvil/rpc",
+  "foundry/anvil/server",
+  "foundry/cast",
+  "foundry/binder",
+  "foundry/cli",
+  "foundry/cli/test-utils",
+  "foundry/common",
+  "foundry/config",
+  "foundry/evm",
+  "foundry/fmt",
+  "foundry/forge",
+  "foundry/ui",
+  "foundry/utils",
+  "foundry/chisel",
+  "foundry/macros",
+  "foundry/macros/impl",
+
+
+]
+
+[profile.dev]
+# Disabling debug info speeds up builds a bunch,
+# and we don't rely on it for debugging that much
+debug = 0
+
+# These speed up local tests
+[profile.dev.package.ethers-solc]
+opt-level = 3
+
+[profile.dev.package.revm]
+opt-level = 3
+
+# These speed up all forge script related integration tests
+[profile.test.package.axum]
+opt-level = 3
+
+# Local "release" mode, more optimized than dev but much faster to compile than release
+[profile.local]
+inherits = "dev"
+opt-level = 3
+# Set this to 1 or 2 to get more useful backtraces
+debug = 0
+panic = 'unwind'
+# better recompile times
+incremental = true
+codegen-units = 16
+
+[profile.release]
+# Optimize for binary size, but keep loop vectorization
+opt-level = "s"
+# Performance optimizations
+lto = "fat"
+debug = 0
+strip = true
+panic = "abort"
+codegen-units = 1

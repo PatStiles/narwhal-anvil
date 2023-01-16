@@ -19,7 +19,7 @@ pub enum StoreCommand {
     NotifyRead(Key, oneshot::Sender<StoreResult<Value>>),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Store {
     channel: Sender<StoreCommand>,
 }

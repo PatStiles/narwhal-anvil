@@ -16,7 +16,7 @@ use primary::PrimaryWorkerMessage;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use store::Store;
-use tokio::sync::mpsc::{channel, Sender};
+use tokio::sync::mpsc::{channel, Receiver as Rcv, Sender};
 
 #[cfg(test)]
 #[path = "tests/worker_tests.rs"]
@@ -59,6 +59,8 @@ impl Worker {
         committee: Committee,
         parameters: Parameters,
         store: Store,
+        tx_batch_maker: Sender<Transaction>,
+        rx_batch_maker: Rcv<Transaction>,
     ) {
         // Define a worker instance.
         let worker = Self {
@@ -72,7 +74,11 @@ impl Worker {
         // Spawn all worker tasks.
         let (tx_primary, rx_primary) = channel(CHANNEL_CAPACITY);
         worker.handle_primary_messages();
-        worker.handle_clients_transactions(tx_primary.clone());
+        worker.handle_clients_transactions(
+            tx_primary.clone(),
+            tx_batch_maker.clone(),
+            rx_batch_maker,
+        );
         worker.handle_workers_messages(tx_primary);
 
         // The `PrimaryConnector` allows the worker to send messages to its primary.
@@ -135,8 +141,14 @@ impl Worker {
     }
 
     /// Spawn all tasks responsible to handle clients transactions.
-    fn handle_clients_transactions(&self, tx_primary: Sender<SerializedBatchDigestMessage>) {
-        let (tx_batch_maker, rx_batch_maker) = channel(CHANNEL_CAPACITY);
+    fn handle_clients_transactions(
+        &self,
+        tx_primary: Sender<SerializedBatchDigestMessage>,
+        tx_batch_maker: Sender<Transaction>,
+        rx_batch_maker: Rcv<Transaction>,
+    ) {
+        //THIS IS WHAT NEEDS TO BE LINKED WITH ANVIL!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        //let (tx_batch_maker, rx_batch_maker) = channel(CHANNEL_CAPACITY);
         let (tx_quorum_waiter, rx_quorum_waiter) = channel(CHANNEL_CAPACITY);
         let (tx_processor, rx_processor) = channel(CHANNEL_CAPACITY);
 
@@ -149,7 +161,10 @@ impl Worker {
         address.set_ip("0.0.0.0".parse().unwrap());
         Receiver::spawn(
             address,
-            /* handler */ TxReceiverHandler { tx_batch_maker },
+            /* handler */
+            TxReceiverHandler {
+                tx_batch_maker: tx_batch_maker,
+            },
         );
 
         // The transactions are sent to the `BatchMaker` that assembles them into batches. It then broadcasts
@@ -158,7 +173,9 @@ impl Worker {
         BatchMaker::spawn(
             self.parameters.batch_size,
             self.parameters.max_batch_delay,
-            /* rx_transaction */ rx_batch_maker,
+            //THIS IS THE CHANNEL THAT FORWARDS RCV TX FROM ANVIL
+            /* rx_transaction */
+            rx_batch_maker,
             /* tx_message */ tx_quorum_waiter,
             /* workers_addresses */
             self.committee
@@ -177,6 +194,7 @@ impl Worker {
             /* tx_batch */ tx_processor,
         );
 
+        //THIS NEEDS TO SEND TX TO THE EVMAP!!!!
         // The `Processor` hashes and stores the batch. It then forwards the batch's digest to the `PrimaryConnector`
         // that will send it to our primary machine.
         Processor::spawn(

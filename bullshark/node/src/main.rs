@@ -1,4 +1,5 @@
 // Copyright(C) Facebook, Inc. and its affiliates.
+use anvil::spawn;
 use anyhow::{Context, Result};
 use clap::{crate_name, crate_version, App, AppSettings, ArgMatches, SubCommand};
 use config::Export as _;
@@ -7,15 +8,12 @@ use config::{Committee, KeyPair, Parameters, WorkerId};
 use consensus::Consensus;
 use env_logger::Env;
 use primary::{Certificate, Primary};
-use store::Store;
-use tokio::sync::mpsc::{channel, Receiver};
-use worker::Worker;
-
-use anvil::spawn;
 use std::net::SocketAddr;
-use evmap::*;
-
+use store::Store;
+use tokio::sync::mpsc::{channel, Receiver, Sender};
+use worker::{batch_maker::Transaction, Worker};
 /// The default channel capacity.
+
 pub const CHANNEL_CAPACITY: usize = 1_000;
 
 #[tokio::main]
@@ -69,43 +67,6 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-// Spawns Anvil instance
-async fn spawn_Anvil() -> Result<()> {
-    let args = Args::parse();
-    let addr = args.host.parse::<SocketAddr>().unwrap();
-
-    server.run(addr).await?;
-    let config = anvil::NodeConfig {
-        host: Some(addr.ip()),
-        port: addr.port(),
-        ..Default::default()
-    };
-
-    let (api, handle) = spawn(config).await;
-    // api.anvil_set_interval_mining(1)?;
-    api.anvil_set_auto_mine(false).await.unwrap();
-
-    match handle.await.unwrap() {
-        Err(err) => {
-            dbg!(err);
-        }
-        Ok(()) => {
-            println!("Listening on {}", addr);
-        }
-    }
-        // Create channel for batchmaker.
-        let (tx_batch, rx_batch) = channel(CHANNEL_CAPACITY);
-
-    Ok(())
-}
-
-// Spawns evmap
-async fn spawn_evmap() -> Result<()> {
-    let (r, w) = evmap::new();
-
-    Ok (())
-}
-
 // Runs either a worker or a primary.
 async fn run(matches: &ArgMatches<'_>) -> Result<()> {
     let key_file = matches.value_of("keys").unwrap();
@@ -132,6 +93,9 @@ async fn run(matches: &ArgMatches<'_>) -> Result<()> {
     // Channels the sequence of certificates.
     let (tx_output, rx_output) = channel(CHANNEL_CAPACITY);
 
+    // Channels Tx from Anvil to Workers Batchmakrer.
+    let (tx_batch_maker, rx_batch_maker) = channel(CHANNEL_CAPACITY);
+
     // Check whether to run a primary, a worker, or an entire authority.
     match matches.subcommand() {
         // Spawn the primary and consensus core.
@@ -147,12 +111,14 @@ async fn run(matches: &ArgMatches<'_>) -> Result<()> {
                 /* rx_consensus */ rx_feedback,
             );
             Consensus::spawn(
-                committee,
+                committee.clone(),
                 parameters.gc_depth,
                 /* rx_primary */ rx_new_certificates,
                 /* tx_primary */ tx_feedback,
                 tx_output,
             );
+
+            spawn_anvil(rx_output, store, committee, tx_batch_maker.clone()).await?;
         }
 
         // Spawn a single worker.
@@ -162,13 +128,21 @@ async fn run(matches: &ArgMatches<'_>) -> Result<()> {
                 .unwrap()
                 .parse::<WorkerId>()
                 .context("The worker id must be a positive integer")?;
-            Worker::spawn(keypair.name, id, committee, parameters, store);
+            Worker::spawn(
+                keypair.name,
+                id,
+                committee.clone(),
+                parameters,
+                store.clone(),
+                tx_batch_maker.clone(),
+                rx_batch_maker,
+            );
         }
         _ => unreachable!(),
     }
 
     // Analyze the consensus' output.
-    analyze(rx_output).await;
+    //analyze(rx_output).await;
 
     // If this expression is reached, the program ends and all other tasks terminate.
     unreachable!();
@@ -179,4 +153,21 @@ async fn analyze(mut rx_output: Receiver<Certificate>) {
     while let Some(_certificate) = rx_output.recv().await {
         // NOTE: Here goes the application logic.
     }
+}
+
+async fn spawn_anvil(
+    rx_output: Receiver<Certificate>,
+    mempool_store: Store,
+    committee: Committee,
+    tx_batch_maker: Sender<Transaction>,
+) -> Result<()> {
+    let addr = "0.0.0.0:26658".parse::<SocketAddr>().unwrap();
+    let config = anvil::NodeConfig {
+        host: Some(addr.ip()),
+        port: addr.port(),
+        ..Default::default()
+    };
+
+    let (api, handle) = spawn(config, tx_batch_maker, rx_output, mempool_store).await;
+    handle.await.unwrap().context("Anvil Handler panicked")
 }
