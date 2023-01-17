@@ -7,14 +7,17 @@ use crypto::Digest;
 use crypto::PublicKey;
 #[cfg(feature = "benchmark")]
 use ed25519_dalek::{Digest as _, Sha512};
+use futures::channel::mpsc::{Sender as Snd};
 #[cfg(feature = "benchmark")]
 use log::info;
 use network::ReliableSender;
+use parking_lot::Mutex;
 #[cfg(feature = "benchmark")]
 use std::convert::TryInto as _;
 use std::net::SocketAddr;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::time::{sleep, Duration, Instant};
+use tracing::warn;
 
 #[cfg(test)]
 #[path = "tests/batch_maker_tests.rs"]
@@ -41,6 +44,8 @@ pub struct BatchMaker {
     current_batch_size: usize,
     /// A network sender to broadcast the batches to the other workers.
     network: ReliableSender,
+    /// listeners for new ready transactions
+    transaction_listeners: Mutex<Vec<Snd<Transaction>>>,
 }
 
 impl BatchMaker {
@@ -50,6 +55,7 @@ impl BatchMaker {
         rx_transaction: Receiver<Transaction>,
         tx_message: Sender<QuorumWaiterMessage>,
         workers_addresses: Vec<(PublicKey, SocketAddr)>,
+        transaction_listeners: Mutex<Vec<Snd<Transaction>>>,
     ) {
         tokio::spawn(async move {
             Self {
@@ -61,6 +67,7 @@ impl BatchMaker {
                 current_batch: Batch::with_capacity(batch_size * 2),
                 current_batch_size: 0,
                 network: ReliableSender::new(),
+                transaction_listeners,
             }
             .run()
             .await;
@@ -76,6 +83,7 @@ impl BatchMaker {
             tokio::select! {
                 // Assemble client transactions into batches of preset size.
                 Some(transaction) = self.rx_transaction.recv() => {
+                    self.notify_listener(transaction.clone());
                     self.current_batch_size += transaction.len();
                     self.current_batch.push(transaction);
                     if self.current_batch_size >= self.batch_size {
@@ -153,5 +161,32 @@ impl BatchMaker {
             })
             .await
             .expect("Failed to deliver batch");
+    }
+
+    /// notifies all listeners about the transaction
+    fn notify_listener(&self, tx: Transaction) {
+        let mut listener = self.transaction_listeners.lock();
+        // this is basically a retain but with mut reference
+        for n in (0..listener.len()).rev() {
+            let mut listener_tx = listener.swap_remove(n);
+            let retain = match listener_tx.try_send(tx.clone()) {
+                Ok(()) => true,
+                Err(e) => {
+                    if e.is_full() {
+                        warn!(
+                            target: "txpool",
+                            "[{:?}] Failed to send tx notification because channel is full",
+                            tx,
+                        );
+                        true
+                    } else {
+                        false
+                    }
+                }
+            };
+            if retain {
+                listener.push(listener_tx)
+            }
+        }
     }
 }

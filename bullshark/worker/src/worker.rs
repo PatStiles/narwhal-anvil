@@ -17,6 +17,8 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use store::Store;
 use tokio::sync::mpsc::{channel, Receiver as Rcv, Sender};
+use parking_lot::Mutex;
+use futures::channel::mpsc::Sender as Snd;
 
 #[cfg(test)]
 #[path = "tests/worker_tests.rs"]
@@ -61,6 +63,7 @@ impl Worker {
         store: Store,
         tx_batch_maker: Sender<Transaction>,
         rx_batch_maker: Rcv<Transaction>,
+        tx_listeners: Mutex<Vec<Snd<Transaction>>>,
     ) {
         // Define a worker instance.
         let worker = Self {
@@ -78,6 +81,7 @@ impl Worker {
             tx_primary.clone(),
             tx_batch_maker.clone(),
             rx_batch_maker,
+            tx_listeners,
         );
         worker.handle_workers_messages(tx_primary);
 
@@ -146,6 +150,7 @@ impl Worker {
         tx_primary: Sender<SerializedBatchDigestMessage>,
         tx_batch_maker: Sender<Transaction>,
         rx_batch_maker: Rcv<Transaction>,
+        tx_listeners: Mutex<Vec<Snd<Transaction>>>,
     ) {
         //THIS IS WHAT NEEDS TO BE LINKED WITH ANVIL!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         //let (tx_batch_maker, rx_batch_maker) = channel(CHANNEL_CAPACITY);
@@ -183,6 +188,7 @@ impl Worker {
                 .iter()
                 .map(|(name, addresses)| (*name, addresses.worker_to_worker))
                 .collect(),
+            tx_listeners,
         );
 
         // The `QuorumWaiter` waits for 2f authorities to acknowledge reception of the batch. It then forwards

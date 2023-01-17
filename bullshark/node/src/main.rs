@@ -12,6 +12,8 @@ use std::net::SocketAddr;
 use store::Store;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use worker::{batch_maker::Transaction, Worker};
+use futures::channel::mpsc::Sender as Snd;
+use parking_lot::Mutex;
 /// The default channel capacity.
 
 pub const CHANNEL_CAPACITY: usize = 1_000;
@@ -96,6 +98,9 @@ async fn run(matches: &ArgMatches<'_>) -> Result<()> {
     // Channels Tx from Anvil to Workers Batchmakrer.
     let (tx_batch_maker, rx_batch_maker) = channel(CHANNEL_CAPACITY);
 
+    let vec: Vec<Snd<Transaction>> = Vec::new();
+    let tx_listeners = Mutex::new(vec);
+
     // Check whether to run a primary, a worker, or an entire authority.
     match matches.subcommand() {
         // Spawn the primary and consensus core.
@@ -118,7 +123,7 @@ async fn run(matches: &ArgMatches<'_>) -> Result<()> {
                 tx_output,
             );
 
-            spawn_anvil(rx_output, store, committee, tx_batch_maker.clone()).await?;
+            spawn_anvil(rx_output, store, committee, tx_batch_maker.clone(), tx_listeners).await?;
         }
 
         // Spawn a single worker.
@@ -136,6 +141,7 @@ async fn run(matches: &ArgMatches<'_>) -> Result<()> {
                 store.clone(),
                 tx_batch_maker.clone(),
                 rx_batch_maker,
+                tx_listeners,
             );
         }
         _ => unreachable!(),
@@ -160,6 +166,7 @@ async fn spawn_anvil(
     mempool_store: Store,
     committee: Committee,
     tx_batch_maker: Sender<Transaction>,
+    tx_listeners: Mutex<Vec<Snd<Transaction>>>,
 ) -> Result<()> {
     let addr = "0.0.0.0:26658".parse::<SocketAddr>().unwrap();
     let config = anvil::NodeConfig {
@@ -168,6 +175,6 @@ async fn spawn_anvil(
         ..Default::default()
     };
 
-    let (api, handle) = spawn(config, tx_batch_maker, rx_output, mempool_store).await;
+    let (_, handle) = spawn(config, tx_batch_maker, rx_output, mempool_store, tx_listeners).await;
     handle.await.unwrap().context("Anvil Handler panicked")
 }

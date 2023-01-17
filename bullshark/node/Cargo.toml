@@ -23,6 +23,7 @@ primary = { path = "../primary" }
 worker = { path = "../worker" }
 consensus = { path = "../consensus" }
 anvil = { path = "../../foundry/anvil" }
+parking_lot = "0.12"
 
 [features]
 benchmark = ["worker/benchmark", "primary/benchmark", "consensus/benchmark"]
