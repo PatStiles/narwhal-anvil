@@ -8,7 +8,7 @@ use tokio::sync::oneshot;
 pub mod store_tests;
 
 pub type StoreError = rocksdb::Error;
-type StoreResult<T> = Result<T, StoreError>;
+pub type StoreResult<T> = Result<T, StoreError>;
 
 type Key = Vec<u8>;
 type Value = Vec<u8>;
