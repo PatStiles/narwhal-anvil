@@ -22,7 +22,8 @@ crypto = { path = "../crypto" }
 primary = { path = "../primary" }
 worker = { path = "../worker" }
 consensus = { path = "../consensus" }
-anvil = { path = "../../foundry/anvil" }
+anvil = { path = "../foundry/anvil" }
+
 parking_lot = "0.12"
 
 [features]

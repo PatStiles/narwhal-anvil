@@ -31,11 +31,11 @@ forge = { path = "../forge", optional = true }
 foundry-config = { path = "../config" }
 
 # Bullshark internal
-primary = { path = "../../bullshark/primary" }
-worker = { path = "../../bullshark/worker" }
-store = { path = "../../bullshark/store" }
-bullshark_config = { path = "../../bullshark/config", package = "config" }
-crypto = { path = "../../bullshark/crypto" }
+primary = { path = "../../primary" }
+worker = { path = "../../worker" }
+store = { path = "../../store" }
+bullshark_config = { path = "../../config", package = "config" }
+crypto = { path = "../../crypto" }
 rocksdb = "0.16.0"
 
 # evm support
