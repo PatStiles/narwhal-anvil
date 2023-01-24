@@ -86,6 +86,7 @@ impl Future for NodeService {
             }
 
             if let Poll::Ready(Some(cert)) = pin.rx_consensus.poll_recv(cx) {
+                println!("receiving cert");
                 let batch: Vec<Vec<u8>> = Vec::new();
                 let wait_for = cert
                     .header
@@ -101,6 +102,7 @@ impl Future for NodeService {
             }
 
             if let Poll::Ready(Some(batch)) = waiting.poll_next_unpin(cx) {
+                println!("processing fetched tx");
                 let pool_txs = serde_json::from_slice::<Vec<PoolTransaction>>(
                     batch.unwrap().concat().as_slice(),
                 )
@@ -109,6 +111,7 @@ impl Future for NodeService {
                     pool_txs.into_iter().map(|tx| Arc::new(tx)).collect::<Vec<_>>();
 
                 // fetcher returned a set of transaction that we feed to the producer
+                println!("pushing Tx to block_producer");
                 pin.block_producer.queued.push_back(txs);
             }
         }

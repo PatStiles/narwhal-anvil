@@ -101,22 +101,14 @@ pub async fn spawn(
     tx_listeners: Mutex<Vec<Snd<Transaction>>>,
 ) -> (EthApi, NodeHandle) {
     let logger = if config.enable_tracing { init_tracing() } else { Default::default() };
+    println!("Set up tracing");
 
     let backend = Arc::new(config.setup().await);
 
     let fork = backend.get_fork().cloned();
 
-    let NodeConfig {
-        signer_accounts,
-        block_time,
-        port,
-        max_transactions,
-        server_config,
-        no_mining,
-        transaction_order,
-        genesis,
-        ..
-    } = config.clone();
+    let NodeConfig { signer_accounts, port, server_config, transaction_order, genesis, .. } =
+        config.clone();
 
     let dev_signer: Box<dyn EthSigner> = Box::new(DevSigner::new(signer_accounts));
     let mut signers = vec![dev_signer];
@@ -154,6 +146,7 @@ pub async fn spawn(
         tx_listeners,
     );
 
+    println!("Api spawned");
     // spawn the node service
     let node_service = tokio::task::spawn(NodeService::new(
         backend,
@@ -162,6 +155,7 @@ pub async fn spawn(
         rx_consensus,
         store,
     ));
+    println!("Node Service spawned");
 
     let host = config.host.unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
     let mut addr = SocketAddr::new(host, port);
@@ -195,6 +189,7 @@ pub async fn spawn(
     };
 
     handle.print(fork.as_ref());
+    println!("Finished spawning anvil");
 
     (api, handle)
 }
@@ -364,6 +359,7 @@ pub fn init_tracing() -> LoggingManager {
     use tracing_subscriber::prelude::*;
 
     let manager = LoggingManager::default();
+    println!("tracing init");
     // check whether `RUST_LOG` is explicitly set
     if std::env::var("RUST_LOG").is_ok() {
         tracing_subscriber::Registry::default()

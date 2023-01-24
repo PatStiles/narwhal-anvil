@@ -33,7 +33,7 @@ class LogParser:
             with Pool() as p:
                 results = p.map(self._parse_clients, clients)
         except (ValueError, IndexError, AttributeError) as e:
-            raise ParseError(f'Failed to parse clients\' logs: {e}')
+            raise ParseError(f'Failed to parse clients\" logs: {e}')
         self.size, self.rate, self.start, misses, self.sent_samples \
             = zip(*results)
         self.misses = sum(misses)
@@ -43,7 +43,7 @@ class LogParser:
             with Pool() as p:
                 results = p.map(self._parse_primaries, primaries)
         except (ValueError, IndexError, AttributeError) as e:
-            raise ParseError(f'Failed to parse nodes\' logs: {e}')
+            raise ParseError(f'Failed to parse nodes\" logs: {e}')
         proposals, commits, self.configs, primary_ips = zip(*results)
         self.proposals = self._merge_results([x.items() for x in proposals])
         self.commits = self._merge_results([x.items() for x in commits])
@@ -53,7 +53,7 @@ class LogParser:
             with Pool() as p:
                 results = p.map(self._parse_workers, workers)
         except (ValueError, IndexError, AttributeError) as e:
-            raise ParseError(f'Failed to parse workers\' logs: {e}')
+            raise ParseError(f'Failed to parse workers\" logs: {e}')
         sizes, self.received_samples, workers_ips = zip(*results)
         self.sizes = {
             k: v for x in sizes for k, v in x.items() if k in self.commits
@@ -84,6 +84,7 @@ class LogParser:
         size = int(search(r'Transactions size: (\d+)', log).group(1))
         rate = int(search(r'Transactions rate: (\d+)', log).group(1))
 
+        #this is returning none
         tmp = search(r'\[(.*Z) .* Start ', log).group(1)
         start = self._to_posix(tmp)
 
@@ -91,6 +92,7 @@ class LogParser:
 
         tmp = findall(r'\[(.*Z) .* sample transaction (\d+)', log)
         samples = {int(s): self._to_posix(t) for t, s in tmp}
+        print("Found/parsed client data")
 
         return size, rate, start, misses, samples
 

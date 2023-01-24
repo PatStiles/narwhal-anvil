@@ -72,7 +72,8 @@ class LocalBench:
             committee.print(PathMaker.committee_file())
 
             self.node_parameters.print(PathMaker.parameters_file())
-
+            
+            print("config files generated")
             # Run the clients (they will wait for the nodes to be ready).
             workers_addresses = committee.workers_addresses(self.faults)
             rate_share = ceil(rate / committee.workers())
@@ -87,6 +88,7 @@ class LocalBench:
                     log_file = PathMaker.client_log_file(i, id)
                     self._background_run(cmd, log_file)
 
+            print("clients running generated")
             # Run the primaries (except the faulty ones).
             for i, address in enumerate(committee.primary_addresses(self.faults)):
                 cmd = CommandMaker.run_primary(
@@ -99,6 +101,7 @@ class LocalBench:
                 log_file = PathMaker.primary_log_file(i)
                 self._background_run(cmd, log_file)
 
+            print("primaries running")
             # Run the workers (except the faulty ones).
             for i, addresses in enumerate(workers_addresses):
                 for (id, address) in addresses:
@@ -113,6 +116,7 @@ class LocalBench:
                     log_file = PathMaker.worker_log_file(i, id)
                     self._background_run(cmd, log_file)
 
+            print("workers running")
             # Wait for all transactions to be processed.
             Print.info(f'Running benchmark ({self.duration} sec)...')
             sleep(self.duration)

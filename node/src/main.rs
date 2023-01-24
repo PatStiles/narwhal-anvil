@@ -7,13 +7,13 @@ use config::Import as _;
 use config::{Committee, KeyPair, Parameters, WorkerId};
 use consensus::Consensus;
 use env_logger::Env;
+use futures::channel::mpsc::Sender as Snd;
+use parking_lot::Mutex;
 use primary::{Certificate, Primary};
 use std::net::SocketAddr;
 use store::Store;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use worker::{batch_maker::Transaction, Worker};
-use futures::channel::mpsc::Sender as Snd;
-use parking_lot::Mutex;
 /// The default channel capacity.
 
 pub const CHANNEL_CAPACITY: usize = 1_000;
@@ -93,7 +93,7 @@ async fn run(matches: &ArgMatches<'_>) -> Result<()> {
     let store = Store::new(store_path).context("Failed to create a store")?;
 
     // Channels the sequence of certificates.
-    let (tx_output, rx_output) = channel(CHANNEL_CAPACITY);
+    let (tx_output, mut rx_output) = channel(CHANNEL_CAPACITY);
 
     // Channels Tx from Anvil to Workers Batchmakrer.
     let (tx_batch_maker, rx_batch_maker) = channel(CHANNEL_CAPACITY);
@@ -123,7 +123,7 @@ async fn run(matches: &ArgMatches<'_>) -> Result<()> {
                 tx_output,
             );
 
-            spawn_anvil(rx_output, store, committee, tx_batch_maker.clone(), tx_listeners).await?;
+            spawn_anvil(rx_output, store, tx_batch_maker.clone(), tx_listeners).await?;
         }
 
         // Spawn a single worker.
@@ -143,6 +143,8 @@ async fn run(matches: &ArgMatches<'_>) -> Result<()> {
                 rx_batch_maker,
                 tx_listeners,
             );
+
+            rx_output.recv().await;
         }
         _ => unreachable!(),
     }
@@ -154,27 +156,32 @@ async fn run(matches: &ArgMatches<'_>) -> Result<()> {
     unreachable!();
 }
 
-/// Receives an ordered list of certificates and apply any application-specific logic.
-async fn analyze(mut rx_output: Receiver<Certificate>) {
-    while let Some(_certificate) = rx_output.recv().await {
-        // NOTE: Here goes the application logic.
-    }
-}
-
 async fn spawn_anvil(
     rx_output: Receiver<Certificate>,
     mempool_store: Store,
-    committee: Committee,
     tx_batch_maker: Sender<Transaction>,
     tx_listeners: Mutex<Vec<Snd<Transaction>>>,
 ) -> Result<()> {
-    let addr = "0.0.0.0:26658".parse::<SocketAddr>().unwrap();
+    let addr = "0.0.0.0:25664".parse::<SocketAddr>().unwrap();
     let config = anvil::NodeConfig {
         host: Some(addr.ip()),
         port: addr.port(),
+        enable_tracing: false,
         ..Default::default()
     };
 
-    let (_, handle) = spawn(config, tx_batch_maker, rx_output, mempool_store, tx_listeners).await;
-    handle.await.unwrap().context("Anvil Handler panicked")
+    let (_, handle) = spawn(
+        config,
+        tx_batch_maker,
+        rx_output,
+        mempool_store,
+        tx_listeners,
+    )
+    .await;
+    handle
+        .await
+        .unwrap()
+        .context("Anvil Handler panicked")
+        .unwrap();
+    Ok(())
 }
