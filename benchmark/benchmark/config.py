@@ -28,11 +28,13 @@ class Committee:
                 "primary: {
                     "primary_to_primary": x.x.x.x:x,
                     "worker_to_primary": x.x.x.x:x,
+                    "anvil_to_primary": x.x.x.x:x,
                 },
                 "workers": {
                     "0": {
                         "primary_to_worker": x.x.x.x:x,
                         "worker_to_worker": x.x.x.x:x,
+                        "anvil_to_worker": x.x.x.xLx,
                         "transactions": x.x.x.x:x
                     },
                     ...
@@ -66,9 +68,10 @@ class Committee:
             host = hosts.pop(0)
             primary_addr = {
                 'primary_to_primary': f'{host}:{port}',
-                'worker_to_primary': f'{host}:{port + 1}'
+                'worker_to_primary': f'{host}:{port + 1}',
+                'anvil_to_primary': f'{host}:{port+2}',
             }
-            port += 2
+            port += 3
 
             workers_addr = OrderedDict()
             for j, host in enumerate(hosts):
@@ -76,13 +79,20 @@ class Committee:
                     'primary_to_worker': f'{host}:{port}',
                     'transactions': f'{host}:{port + 1}',
                     'worker_to_worker': f'{host}:{port + 2}',
+                    'anvil_to_worker': f'{host}:{port + 3}'
                 }
-                port += 3
+                port += 4
 
+            anvil_addr= {
+                'primary_to_anvil': f'{host}:{port}',
+                'worker_to_anvil': f'{host}:{port + 1}',
+                'anvil_to_anvil': f'{host}:{port + 2}'
+            }
             self.json['authorities'][name] = {
                 'stake': 1,
                 'primary': primary_addr,
-                'workers': workers_addr
+                'workers': workers_addr,
+                'anvil': anvil_addr
             }
 
     def primary_addresses(self, faults=0):
@@ -106,6 +116,16 @@ class Committee:
             addresses.append(authority_addresses)
         return addresses
 
+    def anvil_addresses(self,faults=0):
+        '''Returns an ordered list of anvils' addresses.'''
+        assert faults < self.size()
+        addresses = []
+        good_nodes = self.size() - faults
+        for authority in list(self.json['authorities'].values())[:good_nodes]:
+            addresses += [authority['anvil']['anvil_to_anvil']]
+        return addresses
+
+
     def ips(self, name=None):
         ''' Returns all the ips associated with an authority (in any order). '''
         if name is None:
@@ -118,11 +138,18 @@ class Committee:
             addresses = self.json['authorities'][name]['primary']
             ips.add(self.ip(addresses['primary_to_primary']))
             ips.add(self.ip(addresses['worker_to_primary']))
+            ips.add(self.ip(addresses['anvil_to_primary']))
 
             for worker in self.json['authorities'][name]['workers'].values():
                 ips.add(self.ip(worker['primary_to_worker']))
                 ips.add(self.ip(worker['worker_to_worker']))
                 ips.add(self.ip(worker['transactions']))
+                ips.add(self.ip(worker['anvil_to_worker']))
+
+                for anvil in seslf.json['authorities'][name]['anvil'].values():
+                    ips.add(self.ip(anvil['primary_to_anvil']))
+                    ips.add(self.ip(anvil['worker_to_anvil']))
+                    ips.add(self.ip(anvil['anvil_to_anvil']))
 
         return list(ips)
 
