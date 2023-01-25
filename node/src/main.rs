@@ -6,6 +6,7 @@ use config::Export as _;
 use config::Import as _;
 use config::{Committee, KeyPair, Parameters, WorkerId};
 use consensus::Consensus;
+use crypto::PublicKey;
 use env_logger::Env;
 use futures::channel::mpsc::Sender as Snd;
 use parking_lot::Mutex;
@@ -107,6 +108,7 @@ async fn run(matches: &ArgMatches<'_>) -> Result<()> {
         ("primary", _) => {
             let (tx_new_certificates, rx_new_certificates) = channel(CHANNEL_CAPACITY);
             let (tx_feedback, rx_feedback) = channel(CHANNEL_CAPACITY);
+            let name = keypair.name;
             Primary::spawn(
                 keypair,
                 committee.clone(),
@@ -123,7 +125,7 @@ async fn run(matches: &ArgMatches<'_>) -> Result<()> {
                 tx_output,
             );
 
-            spawn_anvil(rx_output, store, tx_batch_maker.clone(), tx_listeners).await?;
+            spawn_anvil(rx_output, store, tx_batch_maker.clone(), tx_listeners,committee.clone(),name).await?;
         }
 
         // Spawn a single worker.
@@ -161,11 +163,26 @@ async fn spawn_anvil(
     mempool_store: Store,
     tx_batch_maker: Sender<Transaction>,
     tx_listeners: Mutex<Vec<Snd<Transaction>>>,
+    committee: Committee,
+    name: PublicKey,
 ) -> Result<()> {
-    let addr = "0.0.0.0:25664".parse::<SocketAddr>().unwrap();
+
+    // Spawn the network receiver listening to messages from the primary.
+      let mut address = committee
+      .anvil(&name)
+      .expect("Our public key or anvil is not in the committee")
+      .primary_to_anvil;
+
+      address.set_ip("0.0.0.0".parse().unwrap());
+    //   NetworkReceiver::spawn(
+    //       address,
+    //       /* handler */
+    //   //TODO
+    //   ); 
+    //let addr = "0.0.0.0:25664".parse::<SocketAddr>().unwrap();
     let config = anvil::NodeConfig {
-        host: Some(addr.ip()),
-        port: addr.port(),
+        host: Some(address.ip()),
+        port: address.port(),
         enable_tracing: false,
         ..Default::default()
     };
