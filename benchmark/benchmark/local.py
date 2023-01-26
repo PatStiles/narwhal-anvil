@@ -11,7 +11,7 @@ from benchmark.utils import Print, BenchError, PathMaker
 
 
 class LocalBench:
-    BASE_PORT = 3000
+    BASE_PORT = 4000
 
     def __init__(self, bench_parameters_dict, node_parameters_dict):
         try:

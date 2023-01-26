@@ -69,7 +69,7 @@ class Committee:
             primary_addr = {
                 'primary_to_primary': f'{host}:{port}',
                 'worker_to_primary': f'{host}:{port + 1}',
-                'anvil_to_primary': f'{host}:{port+2}',
+                'anvil_to_primary': f'{host}:{port+2+4000}',
             }
             port += 3
 
@@ -79,14 +79,13 @@ class Committee:
                     'primary_to_worker': f'{host}:{port}',
                     'transactions': f'{host}:{port + 1}',
                     'worker_to_worker': f'{host}:{port + 2}',
-                    'anvil_to_worker': f'{host}:{port + 3}'
+                    'anvil_to_worker': f'{host}:{port + 3 + 4000 }'
                 }
                 port += 4
 
             anvil_addr= {
-                'primary_to_anvil': f'{host}:{port}',
-                'worker_to_anvil': f'{host}:{port + 1}',
-                'anvil_to_anvil': f'{host}:{port + 2}'
+                'primary_to_anvil': f'{host}:{port + 4000}',
+                'worker_to_anvil': f'{host}:{port + 1 + 4000}',
             }
             self.json['authorities'][name] = {
                 'stake': 1,
@@ -116,14 +115,14 @@ class Committee:
             addresses.append(authority_addresses)
         return addresses
 
-    def anvil_addresses(self,faults=0):
-        '''Returns an ordered list of anvils' addresses.'''
-        assert faults < self.size()
-        addresses = []
-        good_nodes = self.size() - faults
-        for authority in list(self.json['authorities'].values())[:good_nodes]:
-            addresses += [authority['anvil']['anvil_to_anvil']]
-        return addresses
+    # def anvil_addresses(self,faults=0):
+    #     '''Returns an ordered list of anvils' addresses.'''
+    #     assert faults < self.size()
+    #     addresses = []
+    #     good_nodes = self.size() - faults
+    #     for authority in list(self.json['authorities'].values())[:good_nodes]:
+    #         addresses += [authority['anvil']['anvil_to_anvil']]
+    #     return addresses
 
 
     def ips(self, name=None):
@@ -146,10 +145,9 @@ class Committee:
                 ips.add(self.ip(worker['transactions']))
                 ips.add(self.ip(worker['anvil_to_worker']))
 
-                for anvil in seslf.json['authorities'][name]['anvil'].values():
+                for anvil in self.json['authorities'][name]['anvil'].values():
                     ips.add(self.ip(anvil['primary_to_anvil']))
                     ips.add(self.ip(anvil['worker_to_anvil']))
-                    ips.add(self.ip(anvil['anvil_to_anvil']))
 
         return list(ips)
 

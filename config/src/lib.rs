@@ -125,8 +125,7 @@ pub struct AnvilAddresses {
     pub primary_to_anvil: SocketAddr,
     /// Address to receive messages from our workers (LAN).
     pub worker_to_anvil: SocketAddr,
-    /// Address to receive messages from anvil,
-    pub anvil_to_anvil: SocketAddr
+
 }
 
 #[derive(Clone, Deserialize, Eq, Hash, PartialEq)]
