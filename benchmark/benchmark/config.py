@@ -84,7 +84,7 @@ class Committee:
                 port += 4
 
             anvil_addr= {
-                'primary_to_anvil': f'{host}:{port + 4000}',
+                'external_to_anvil': f'{host}:{port + 4000}',
                 'worker_to_anvil': f'{host}:{port + 1 + 4000}',
             }
             self.json['authorities'][name] = {
@@ -146,7 +146,7 @@ class Committee:
                 ips.add(self.ip(worker['anvil_to_worker']))
 
                 for anvil in self.json['authorities'][name]['anvil'].values():
-                    ips.add(self.ip(anvil['primary_to_anvil']))
+                    ips.add(self.ip(anvil['external_to_anvil']))
                     ips.add(self.ip(anvil['worker_to_anvil']))
 
         return list(ips)

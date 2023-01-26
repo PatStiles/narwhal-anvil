@@ -171,7 +171,7 @@ async fn spawn_anvil(
       let mut address = committee
       .anvil(&name)
       .expect("Our public key or anvil is not in the committee")
-      .primary_to_anvil;
+      .external_to_anvil;
 
       address.set_ip("0.0.0.0".parse().unwrap());
     //   NetworkReceiver::spawn(

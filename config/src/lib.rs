@@ -122,7 +122,7 @@ pub struct PrimaryAddresses {
 #[derive(Clone, Deserialize)]
 pub struct AnvilAddresses {
     /// Address to receive messages from other primaries (WAN).
-    pub primary_to_anvil: SocketAddr,
+    pub external_to_anvil: SocketAddr,
     /// Address to receive messages from our workers (LAN).
     pub worker_to_anvil: SocketAddr,
 
