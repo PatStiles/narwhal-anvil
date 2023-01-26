@@ -5,7 +5,7 @@ use futures::StreamExt;
 use handler::{HttpEthRpcHandler, PubSubEthRpcHandler};
 use std::net::SocketAddr;
 use tokio::{io, task::JoinHandle};
-use tracing::trace;
+use log::trace;
 
 mod handler;
 

@@ -18,7 +18,7 @@ use crate::{
     },
     filter::{EthFilter, Filters, LogsFilter},
     revm::TransactOut,
-    ClientFork, LoggingManager, StorageInfo,
+    ClientFork, StorageInfo,
 };
 use anvil_core::{
     eth::{
@@ -53,9 +53,9 @@ use foundry_evm::{
     executor::backend::DatabaseError,
     revm::{return_ok, return_revert, Return},
 };
+use log::{trace, warn};
 use parking_lot::{Mutex, RwLock};
 use std::sync::Arc;
-use tracing::{trace, warn};
 
 use super::backend::mem::BlockRequest;
 use futures::channel::mpsc::{channel, Receiver, Sender as Snd};
@@ -81,7 +81,7 @@ pub struct EthApi {
     /// max number of items kept in fee cache
     fee_history_limit: u64,
     /// allows to enabled/disable logging
-    logger: LoggingManager,
+    //logger: LoggingManager,
     /// Tracks all active filters
     filters: Filters,
     /// How transactions are ordered in the pool
@@ -106,7 +106,7 @@ impl EthApi {
         signers: Arc<Vec<Box<dyn Signer>>>,
         fee_history_cache: FeeHistoryCache,
         fee_history_limit: u64,
-        logger: LoggingManager,
+        //logger: LoggingManager,
         filters: Filters,
         transactions_order: TransactionOrder,
         tx_worker_channel: Sender<Tx>,
@@ -118,7 +118,7 @@ impl EthApi {
             signers,
             fee_history_cache,
             fee_history_limit,
-            logger,
+            //logger,
             filters,
             net_listening: true,
             transaction_order: Arc::new(RwLock::new(transactions_order)),
@@ -293,7 +293,7 @@ impl EthApi {
                 self.anvil_set_storage_at(addr, slot, val).await.to_rpc_result()
             }
             EthRequest::SetCoinbase(addr) => self.anvil_set_coinbase(addr).await.to_rpc_result(),
-            EthRequest::SetLogging(log) => self.anvil_set_logging(log).await.to_rpc_result(),
+            //    EthRequest::SetLogging(log) => self.anvil_set_logging(log).await.to_rpc_result(),
             EthRequest::SetMinGasPrice(gas) => {
                 self.anvil_set_min_gas_price(gas).await.to_rpc_result()
             }
@@ -757,7 +757,7 @@ impl EthApi {
         let pending_transaction = if self.is_impersonated(from) {
             let bypass_signature = self.backend.cheats().bypass_signature();
             let transaction = sign::build_typed_transaction(request, bypass_signature)?;
-            trace!(target : "node", ?from, "eth_sendTransaction: impersonating");
+            trace!(target : "node", "eth_sendTransaction: impersonating, from: {}", from);
             PendingTransaction::with_sender(transaction, from)
         } else {
             let transaction = self.sign_request(&from, request)?;
@@ -1495,6 +1495,7 @@ impl EthApi {
         Ok(true)
     }
 
+    /*
     /// Enable or disable logging.
     ///
     /// Handler for RPC call: `anvil_setLoggingEnabled`
@@ -1503,6 +1504,7 @@ impl EthApi {
         self.logger.set_enabled(enable);
         Ok(())
     }
+    */
 
     /// Set the minimum gas price for the node.
     ///

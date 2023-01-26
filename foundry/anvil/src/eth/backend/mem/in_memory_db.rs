@@ -10,7 +10,7 @@ use crate::{
 };
 use ethers::prelude::H256;
 use forge::revm::{Bytecode, KECCAK_EMPTY};
-use tracing::{trace, warn};
+use log::{trace, warn};
 
 // reexport for convenience
 use crate::mem::state::storage_trie_db;

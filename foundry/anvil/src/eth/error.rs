@@ -14,7 +14,7 @@ use ethers::{
 use foundry_common::SELECTOR_LEN;
 use foundry_evm::{executor::backend::DatabaseError, revm::Return};
 use serde::Serialize;
-use tracing::error;
+use log::error;
 
 pub(crate) type Result<T> = std::result::Result<T, BlockchainError>;
 

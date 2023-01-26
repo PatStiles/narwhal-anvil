@@ -8,6 +8,7 @@ use crate::{
 };
 use futures::{future::try_join_all, stream::FuturesUnordered};
 use futures::{FutureExt, Stream, StreamExt};
+use log::{info, trace};
 use primary::Certificate;
 use std::{
     collections::VecDeque,
@@ -18,7 +19,6 @@ use std::{
 };
 use store::{Store, StoreError, StoreResult};
 use tokio::{sync::mpsc::Receiver, time::Interval};
-use tracing::trace;
 use worker::batch_maker::Batch;
 
 /// The type that drives the blockchain's state
@@ -64,6 +64,7 @@ impl NodeService {
     async fn tx_fetcher(mut missing: Vec<(Vec<u8>, Store)>, deliver: Batch) -> StoreResult<Batch> {
         let waiting: Vec<_> = missing.iter_mut().map(|(x, y)| y.notify_read(x.to_vec())).collect();
 
+        info!(target: "node", "fn tx_fetcher: returning StoreResult; waiting: {:?}", waiting.len());
         try_join_all(waiting).await.map(|_| deliver).map_err(StoreError::from)
     }
 }
@@ -73,20 +74,20 @@ impl Future for NodeService {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let pin = self.get_mut();
-        let mut waiting = FuturesUnordered::new();
+        let mut store_workers = FuturesUnordered::new();
 
         // this drives block production and feeds new sets of ready transactions to the block
         // producer
         loop {
             while let Poll::Ready(Some(outcome)) = pin.block_producer.poll_next_unpin(cx) {
-                trace!(target: "node", "mined block {}", outcome.block_number);
+                info!(target: "node", "mined block {}", outcome.block_number);
                 // prune the transactions from the pool
                 // DON'T NEED TO PRUNE TX FROM POOL AS NO POOL TO PRUNE, MAY USE THIS FOR FLUSHING CACHE
                 //pin.pool.on_mined_block(outcome);
             }
 
             if let Poll::Ready(Some(cert)) = pin.rx_consensus.poll_recv(cx) {
-                println!("receiving cert");
+                info!(target: "node", "received cert: round {}, id {}", cert.header.round, cert.header.id);
                 let batch: Vec<Vec<u8>> = Vec::new();
                 let wait_for = cert
                     .header
@@ -95,23 +96,24 @@ impl Future for NodeService {
                     .map(|(digest, _)| (digest.to_vec(), pin.store.clone()))
                     .collect();
                 let fut = Self::tx_fetcher(wait_for, batch);
-                waiting.push(fut);
+                store_workers.push(fut);
             } else {
                 // no progress made
                 break;
             }
 
-            if let Poll::Ready(Some(batch)) = waiting.poll_next_unpin(cx) {
-                println!("processing fetched tx");
-                let pool_txs = serde_json::from_slice::<Vec<PoolTransaction>>(
-                    batch.unwrap().concat().as_slice(),
-                )
-                .unwrap();
+            if let Poll::Ready(Some(batch_res)) = store_workers.poll_next_unpin(cx) {
+                let batch = batch_res.unwrap();
+
+                info!(target: "node", "Deserializing Batches from Store: # Batches {}", batch.clone().len());
+                let pool_txs =
+                    serde_json::from_slice::<Vec<PoolTransaction>>(batch.concat().as_slice())
+                        .unwrap();
                 let txs: Vec<Arc<PoolTransaction>> =
                     pool_txs.into_iter().map(|tx| Arc::new(tx)).collect::<Vec<_>>();
 
                 // fetcher returned a set of transaction that we feed to the producer
-                println!("pushing Tx to block_producer");
+                info!(target: "node", "Sending {} Tx to BlockProducer", txs.len());
                 pin.block_producer.queued.push_back(txs);
             }
         }
@@ -162,9 +164,9 @@ impl Stream for BlockProducer {
             if let Some(backend) = pin.idle_backend.take() {
                 let transactions = pin.queued.pop_front().expect("not empty; qed");
                 pin.block_mining = Some(Box::pin(async move {
-                    trace!(target: "miner", "creating new block");
+                    info!(target: "miner", "creating new block");
                     let block = backend.mine_block(transactions).await;
-                    trace!(target: "miner", "created new block: {}", block.block_number);
+                    info!(target: "miner", "created new block: {}", block.block_number);
                     (block, backend)
                 }));
             }

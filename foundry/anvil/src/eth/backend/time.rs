@@ -3,7 +3,7 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
 use parking_lot::RwLock;
 use std::{sync::Arc, time::Duration};
-use tracing::trace;
+use log::trace;
 
 use crate::eth::error::BlockchainError;
 

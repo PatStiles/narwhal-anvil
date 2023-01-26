@@ -44,7 +44,7 @@ use ethers::{
 use futures::channel::mpsc::{channel, Receiver, Sender};
 use parking_lot::{Mutex, RwLock};
 use std::{collections::VecDeque, fmt, sync::Arc};
-use tracing::{debug, trace, warn};
+use log::{debug, trace, warn};
 
 pub mod transactions;
 
@@ -108,7 +108,7 @@ impl Pool {
         block_number: U64,
         markers: impl IntoIterator<Item = TxMarker>,
     ) -> PruneResult {
-        debug!(target: "txpool", ?block_number, "pruning transactions");
+        //debug!(target: "txpool", ?block_number, "pruning transactions");
         self.inner.write().prune_markers(markers)
     }
 

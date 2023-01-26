@@ -6,7 +6,7 @@ use crate::{
         EthApi,
     },
     filter::Filters,
-    logging::{LoggingManager, NodeLogLayer},
+    //   logging::{LoggingManager, NodeLogLayer},
     service::NodeService,
     shutdown::Signal,
     tasks::TaskManager,
@@ -55,7 +55,7 @@ pub mod filter;
 /// support for handling `genesis.json` files
 pub mod genesis;
 /// commandline output
-pub mod logging;
+//pub mod logging;
 /// types for subscriptions
 pub mod pubsub;
 /// axum RPC server implementations
@@ -73,6 +73,7 @@ use primary::Certificate;
 use store::Store;
 use tokio::sync::mpsc::{Receiver as Rcv, Sender};
 use worker::batch_maker::Transaction;
+use log::trace;
 
 /// Creates the node and runs the server
 ///
@@ -100,7 +101,7 @@ pub async fn spawn(
     store: Store,
     tx_listeners: Mutex<Vec<Snd<Transaction>>>,
 ) -> (EthApi, NodeHandle) {
-    let logger = if config.enable_tracing { init_tracing() } else { Default::default() };
+    //let logger = if config.enable_tracing { init_tracing() } else { Default::default() };
     println!("Set up tracing");
 
     let backend = Arc::new(config.setup().await);
@@ -138,7 +139,7 @@ pub async fn spawn(
         Arc::new(signers),
         fee_history_cache,
         fee_history_service.fee_history_limit(),
-        logger,
+        //logger,
         filters.clone(),
         transaction_order,
         tx_worker,
@@ -269,7 +270,7 @@ impl NodeHandle {
     /// Connects to the ipc endpoint of the node, if spawned
     pub async fn ipc_provider(&self) -> Option<Provider<ethers::providers::Ipc>> {
         let ipc_path = self.config.get_ipc_path()?;
-        tracing::trace!(target: "ipc", ?ipc_path, "connecting ipc provider");
+        trace!(target: "ipc", "connecting ipc provider; ipc_path {:?}", ipc_path);
         let provider = Provider::connect_ipc(&ipc_path).await.unwrap_or_else(|err| {
             panic!("Failed to connect to node's ipc endpoint {ipc_path}: {err:?}")
         });
@@ -353,6 +354,7 @@ impl Future for NodeHandle {
     }
 }
 
+/*
 #[allow(unused)]
 #[doc(hidden)]
 pub fn init_tracing() -> LoggingManager {
@@ -380,3 +382,4 @@ pub fn init_tracing() -> LoggingManager {
 
     manager
 }
+*/

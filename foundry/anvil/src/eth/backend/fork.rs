@@ -19,7 +19,7 @@ use parking_lot::{
 };
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::RwLock as AsyncRwLock;
-use tracing::trace;
+use log::trace;
 
 /// Represents a fork of a remote client
 ///

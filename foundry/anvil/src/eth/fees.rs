@@ -15,7 +15,7 @@ use std::{
     sync::Arc,
     task::{Context, Poll},
 };
-use tracing::trace;
+use log::trace;
 
 /// Maximum number of entries in the fee history cache
 pub const MAX_FEE_HISTORY_CACHE_SIZE: u64 = 2048u64;

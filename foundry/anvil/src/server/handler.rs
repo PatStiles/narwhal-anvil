@@ -11,7 +11,7 @@ use anvil_core::eth::{
 use anvil_rpc::{error::RpcError, response::ResponseResult};
 use anvil_server::{PubSubContext, PubSubRpcHandler, RpcHandler};
 use ethers::types::FilteredParams;
-use tracing::trace;
+use log::trace;
 
 /// A `RpcHandler` that expects `EthRequest` rpc calls via http
 #[derive(Clone)]

@@ -1,12 +1,12 @@
 use crate::config::anvil_tmp_dir;
 use ethers::prelude::H256;
 use foundry_evm::executor::backend::snapshot::StateSnapshot;
+use log::{error, trace};
 use std::{
     io,
     path::{Path, PathBuf},
 };
 use tempfile::TempDir;
-use tracing::{error, trace};
 
 /// On disk state cache
 ///
@@ -36,11 +36,11 @@ impl DiskStateCache {
 
             match tmp_dir {
                 Ok(temp_dir) => {
-                    trace!(target: "backend", path=?temp_dir.path(), "created disk state cache dir");
+                    trace!(target: "backend", "created disk state cache dir; path: {:?}", temp_dir.path());
                     self.temp_dir = Some(temp_dir);
                 }
                 Err(err) => {
-                    error!(target: "backend", ?err, "failed to create disk state cache dir");
+                    error!(target: "backend", "failed to create disk state cache dir; err: {:?}", err);
                 }
             }
         }
@@ -62,10 +62,10 @@ impl DiskStateCache {
             tokio::task::spawn(async move {
                 match foundry_common::fs::write_json_file(&file, &state) {
                     Ok(_) => {
-                        trace!(target: "backend", ?hash, "wrote state json file");
+                        trace!(target: "backend", "wrote state json file; hash: {:?}", hash);
                     }
                     Err(err) => {
-                        error!(target: "backend", ?err, ?hash, "Failed to load state snapshot");
+                        error!(target: "backend", "Failed to load state snapshot; err: {:?}, hash: {:?}", err, hash);
                     }
                 };
             });
@@ -79,11 +79,11 @@ impl DiskStateCache {
         self.with_cache_file(hash, |file| {
             match foundry_common::fs::read_json_file::<StateSnapshot>(&file) {
                 Ok(state) => {
-                    trace!(target: "backend", ?hash,"loaded cached state");
+                    trace!(target: "backend", "loaded cached state; hash: {:?}", hash);
                     Some(state)
                 }
                 Err(err) => {
-                    error!(target: "backend", ?err, ?hash, "Failed to load state snapshot");
+                    error!(target: "backend", "Failed to load state snapshot; err: {:?}, hash: {:?}", err, hash);
                     None
                 }
             }

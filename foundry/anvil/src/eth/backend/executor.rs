@@ -24,8 +24,8 @@ use foundry_evm::{
     revm::{BlockEnv, CfgEnv, Env, Return, SpecId, TransactOut},
     trace::{node::CallTraceNode, CallTraceArena},
 };
+use log::{trace, warn};
 use std::sync::Arc;
-use tracing::{trace, warn};
 
 /// Represents an executed transaction (transacted on the DB)
 pub struct ExecutedTransaction {
@@ -131,13 +131,13 @@ impl<'a, DB: Db + ?Sized, Validator: TransactionValidator> TransactionExecutor<'
                 TransactionExecutionOutcome::Exhausted(_) => continue,
                 TransactionExecutionOutcome::Invalid(tx, _) => {
                     invalid.push(tx);
-                    continue
+                    continue;
                 }
                 TransactionExecutionOutcome::DatabaseError(_, err) => {
                     // Note: this is only possible in forking mode, if for example a rpc request
                     // failed
-                    trace!(target: "backend", ?err,  "Failed to execute transaction due to database error");
-                    continue
+                    trace!(target: "backend","Failed to execute transaction due to database error; error={:?}", err);
+                    continue;
                 }
             };
             let receipt = tx.create_receipt();
@@ -233,7 +233,7 @@ impl<'a, 'b, DB: Db + ?Sized, Validator: TransactionValidator> Iterator
         // check that we comply with the block's gas limit
         let max_gas = self.gas_used.saturating_add(U256::from(env.tx.gas_limit));
         if max_gas > env.block.gas_limit {
-            return Some(TransactionExecutionOutcome::Exhausted(transaction))
+            return Some(TransactionExecutionOutcome::Exhausted(transaction));
         }
 
         // validate before executing
@@ -243,7 +243,7 @@ impl<'a, 'b, DB: Db + ?Sized, Validator: TransactionValidator> Iterator
             &env,
         ) {
             warn!(target: "backend", "Skipping invalid tx execution [{:?}] {}", transaction.hash(), err);
-            return Some(TransactionExecutionOutcome::Invalid(transaction, err))
+            return Some(TransactionExecutionOutcome::Invalid(transaction, err));
         }
 
         let mut evm = revm::EVM::new();
@@ -267,7 +267,7 @@ impl<'a, 'b, DB: Db + ?Sized, Validator: TransactionValidator> Iterator
             warn!(target: "backend", "[{:?}] executed with out of gas", transaction.hash())
         }
 
-        trace!(target: "backend", ?exit_reason, ?gas_used, "[{:?}] executed with out={:?}", transaction.hash(), out);
+        trace!(target: "backend", "[{:?}] executed with out={:?}; exit_reason={:?}, gas_used={:?}", transaction.hash(), out, exit_reason, gas_used);
 
         self.gas_used.saturating_add(U256::from(gas_used));
 

@@ -11,6 +11,7 @@ use ethers::{
     types::{Filter, FilteredParams},
 };
 use futures::{channel::mpsc::Receiver, Stream, StreamExt};
+use log::{trace, warn};
 use std::{
     collections::HashMap,
     pin::Pin,
@@ -19,7 +20,6 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::sync::Mutex;
-use tracing::{trace, warn};
 
 /// Type alias for filters identified by their id and their expiration timestamp
 type FilterMap = Arc<Mutex<HashMap<String, (EthFilter, Instant)>>>;
@@ -57,7 +57,7 @@ impl Filters {
                     .await
                     .unwrap_or_else(|| ResponseResult::success(Vec::<()>::new()));
                 *deadline = self.next_deadline();
-                return resp
+                return resp;
             }
         }
         warn!(target: "node::filter", "No filter found for {}", id);
@@ -68,7 +68,7 @@ impl Filters {
     pub async fn get_log_filter(&self, id: &str) -> Option<Filter> {
         let filters = self.active_filters.lock().await;
         if let Some((EthFilter::Logs(ref log), _)) = filters.get(id) {
-            return log.filter.filter.clone()
+            return log.filter.filter.clone();
         }
         None
     }
@@ -96,8 +96,8 @@ impl Filters {
         let mut active_filters = self.active_filters.lock().await;
         active_filters.retain(|id, (_, deadline)| {
             if now > *deadline {
-                trace!(target: "node::filter",?id, "Evicting stale filter");
-                return false
+                trace!(target: "node::filter","Evicting stale filter; id: {:?}", id);
+                return false;
             }
             true
         });

@@ -5,7 +5,7 @@ use ethers::types::{Address, Signature, H256, U256};
 use forge::revm::Bytecode;
 use parking_lot::RwLock;
 use std::{collections::HashMap, sync::Arc};
-use tracing::trace;
+use log::trace;
 
 /// The signature used to bypass signing via the `eth_sendUnsignedTransaction` cheat RPC
 const BYPASS_SIGNATURE: Signature =
