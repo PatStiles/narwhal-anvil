@@ -115,6 +115,17 @@ pub struct PrimaryAddresses {
     pub primary_to_primary: SocketAddr,
     /// Address to receive messages from our workers (LAN).
     pub worker_to_primary: SocketAddr,
+    /// Address to receive messages from anvil,
+    pub anvil_to_primary: SocketAddr
+}
+
+#[derive(Clone, Deserialize)]
+pub struct AnvilAddresses {
+    /// Address to receive messages from other primaries (WAN).
+    pub external_to_anvil: SocketAddr,
+    /// Address to receive messages from our workers (LAN).
+    pub worker_to_anvil: SocketAddr,
+
 }
 
 #[derive(Clone, Deserialize, Eq, Hash, PartialEq)]
@@ -125,6 +136,8 @@ pub struct WorkerAddresses {
     pub worker_to_worker: SocketAddr,
     /// Address to receive messages from our primary (LAN).
     pub primary_to_worker: SocketAddr,
+    /// Address to receive messages from anvil
+    pub anvil_to_worker: SocketAddr
 }
 
 #[derive(Clone, Deserialize)]
@@ -135,6 +148,8 @@ pub struct Authority {
     pub primary: PrimaryAddresses,
     /// Map of workers' id and their network addresses.
     pub workers: HashMap<WorkerId, WorkerAddresses>,
+    /// The network address of the anvil
+    pub anvil : AnvilAddresses
 }
 
 #[derive(Clone, Deserialize)]
@@ -250,6 +265,14 @@ impl Committee {
                     .map(|(_, addresses)| (*name, addresses.clone()))
             })
             .collect()
+    }
+
+     /// Returns the anvil addresses of the target anvil.
+     pub fn anvil(&self, to: &PublicKey) -> Result<AnvilAddresses, ConfigError> {
+        self.authorities
+            .get(to)
+            .map(|x| x.anvil.clone())
+            .ok_or_else(|| ConfigError::NotInCommittee(*to))
     }
 }
 
